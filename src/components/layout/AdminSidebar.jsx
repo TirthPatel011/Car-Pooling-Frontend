@@ -178,10 +178,27 @@ const AdminSidebar = () => {
     if (window.confirm('Are you sure you want to delete this ride?')) {
       try {
         await axios.delete(`http://localhost:3000/rides/${rideId}`);
-        alert('Ride deleted successfully!');
+        toast.success('Ride deleted successfully!', {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          theme: "dark",
+        });
         setRides(rides.filter(r => r.rideId !== rideId));
       } catch (error) {
         console.error('Error deleting ride:', error);
+        toast.error('Failed to delete ride. Please try again.', {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          theme: "dark",
+        });
       }
     }
   };
