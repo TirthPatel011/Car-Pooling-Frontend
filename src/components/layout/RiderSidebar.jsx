@@ -5,6 +5,8 @@ import { faUser, faPlus, faCar, faHandshake, faRoad, faSignOutAlt } from '@forta
 import carLogo from '../../../image/navbarlogo.png';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const RiderSidebar = () => {
   const [activeTab, setActiveTab] = useState('profile');
@@ -39,6 +41,16 @@ const RiderSidebar = () => {
 
   useEffect(() => {
     if (userId) {
+      toast.success(' Successfully logged in!', {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "dark",
+      });
       fetchUserProfile();
       fetchVehicle();
       fetchActiveRides();
@@ -94,7 +106,16 @@ const RiderSidebar = () => {
       try {
         const updatedData = { firstName, lastName, email, phone };
         await axios.put(`api/users/${userId}`, updatedData);
-        alert('Profile updated successfully!');
+        toast.success('Profile updated successfully!', {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "dark",
+        });
       } catch (error) {
         console.error('Error updating profile:', error);
       }
@@ -113,10 +134,29 @@ const RiderSidebar = () => {
             color: carColor,
           };
           await axios.put(`http://localhost:3000/vehicle/${vehicleId}`, updatedData);
-          alert('Vehicle updated successfully!');
+          toast.success('Vehicle updated successfully!', {
+            position: "top-right",
+            autoClose: 3000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+            progress: undefined,
+            theme: "dark",
+          });
           setIsVehicleEditing(false);
         } catch (error) {
           console.error('Error updating vehicle:', error);
+          toast.error('Failed to update vehicle. Please try again.', {
+            position: "top-right",
+            autoClose: 3000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+            progress: undefined,
+            theme: "dark",
+          });
         }
       } else {
         setIsVehicleEditing(true);
@@ -132,9 +172,28 @@ const RiderSidebar = () => {
         };
         const response = await axios.post('http://localhost:3000/vehicle', newVehicle);
         setVehicleId(response.data.vehicleId);
-        alert('Vehicle added successfully!');
+        toast.success('Vehicle added successfully!', {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "dark",
+        });
       } catch (error) {
         console.error('Error adding vehicle:', error);
+        toast.error('Failed to add vehicle. Please try again.', {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "dark",
+        });
       }
     }
   };
@@ -151,7 +210,16 @@ const RiderSidebar = () => {
         price: parseFloat(ridePrice),
       };
       await axios.post('http://localhost:3000/rides', rideData);
-      alert('Ride added successfully!');
+      toast.success('Ride added successfully!', {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "dark",
+      });
       fetchActiveRides();
       setSource('');
       setDestination('');
@@ -159,19 +227,102 @@ const RiderSidebar = () => {
       setRidePrice('');
     } catch (error) {
       console.error('Error adding ride:', error);
+      toast.error('Failed to add ride. Please try again.', {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "dark",
+      });
     }
   };
  
   const deactivateRide = async (rideId) => {
+    try {
+      await axios.delete(`http://localhost:3000/rides/${rideId}`);
+      toast.success('Ride deactivated successfully!', {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "dark",
+      });
+      fetchActiveRides();
+    } catch (error) {
+      console.error('Error deactivating ride:', error);
+    }
+  };
+
+const [rideRequests, setRideRequests] = useState([]);
+
+useEffect(() => {
+  if (userId && activeTab === 'ride-requests') {
+    fetchRideRequests();
+  }
+}, [activeTab, userId]);
+
+const fetchRideRequests = async () => {
   try {
-    await axios.delete(`http://localhost:3000/rides/${rideId}`);
-    alert('Ride deactivated successfully!');
-    fetchActiveRides();
+    const response = await axios.get(`http://localhost:3000/ride-requests?driverId=${userId}`);
+    const requestsWithPassengerNames = await Promise.all(
+      response.data.map(async (request) => {
+        try {
+          const passengerResponse = await axios.get(`http://localhost:3000/api/users/${request.passengerId}`);
+          return {
+            ...request,
+            passengerName: `${passengerResponse.data.data.firstName} ${passengerResponse.data.data.lastName}`
+          };
+        } catch (error) {
+          console.error('Error fetching passenger details:', error);
+          return {
+            ...request,
+            passengerName: 'Unknown Passenger'
+          };
+        }
+      })
+    );
+    setRideRequests(requestsWithPassengerNames);
   } catch (error) {
-    console.error('Error deactivating ride:', error);
+    console.error('Error fetching ride requests:', error);
   }
 };
 
+const handleAcceptRequest = async (requestId) => {
+  try {
+    await axios.put(`http://localhost:3000/ride-requests/${requestId}`, { status: 'accepted' });
+    toast.success('Ride request accepted!', {
+      position: "top-right",
+      autoClose: 3000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+      theme: "dark",
+    });
+    fetchRideRequests();
+  } catch (error) {
+    console.error('Error accepting ride request:', error);
+    alert('Failed to accept ride request.');
+  }
+};
+
+const handleRejectRequest = async (requestId) => {
+  try {
+    await axios.put(`http://localhost:3000/ride-requests/${requestId}`, { status: 'rejected' });
+    alert('Ride request rejected!');
+    fetchRideRequests();
+  } catch (error) {
+    console.error('Error rejecting ride request:', error);
+    alert('Failed to reject ride request.');
+  }
+};
 
   const logoutHandler = () => {
     localStorage.clear();
@@ -180,6 +331,7 @@ const RiderSidebar = () => {
 
   return (
     <div>
+      <ToastContainer />
       <style>{`
         /* Global Styles */
         * {
@@ -498,6 +650,54 @@ const RiderSidebar = () => {
           background: #c0392b;
         }
 
+        .ride-requests-list {
+          margin-top: 20px;
+        }
+
+        .request-card {
+          background: rgba(46, 204, 155, 0.1);
+          padding: 20px;
+          border-radius: 10px;
+          border: 1px solid #2ECC9B;
+          margin-bottom: 20px;
+          box-shadow: 0 0 10px rgba(46, 204, 155, 0.3);
+        }
+
+        .request-info {
+          margin-bottom: 15px;
+        }
+
+        .request-info p {
+          margin: 5px 0;
+          color: #fff;
+        }
+
+        .status-pending {
+          color: #f39c12;
+          font-weight: bold;
+        }
+
+        .status-accepted {
+          color: #2ecc71;
+          font-weight: bold;
+        }
+
+        .status-rejected {
+          color: #e74c3c;
+          font-weight: bold;
+        }
+
+        .request-actions {
+          text-align: right;
+          margin-top: 15px;
+        }
+
+        .no-requests-message {
+          text-align: center;
+          padding: 20px;
+          color: #fff;
+        }
+
         @keyframes fadeIn {
           from { opacity: 0; }
           to { opacity: 1; }
@@ -743,32 +943,42 @@ const RiderSidebar = () => {
           <section className={`tab-content ${activeTab === 'ride-requests' ? 'active' : ''}`}>
             <h1>Ride Requests</h1>
             <p className="subtext">Manage Incoming Requests</p>
-            <p>Feature not implemented yet (requires backend ride request model).</p>
-            <table>
-              <thead>
-                <tr>
-                  <th>Rider Name</th>
-                  <th>Pickup Location</th>
-                  <th>Drop-off Location</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Tirth Patel</td>
-                  <td>Downtown Center</td>
-                  <td>Suburbs Mall</td>
-                  <td>
-                    <button className="accept-btn" onClick={() => alert('Ride request accepted!')}>
-                      Accept
-                    </button>
-                    <button className="reject-btn" onClick={() => alert('Ride request rejected!')}>
-                      Reject
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <div className="ride-requests-list">
+              {rideRequests.length > 0 ? (
+                rideRequests.map((request) => (
+                  <div className="request-card" key={request.requestId}>
+                    <div className="request-info">
+                      <p><strong>Request ID:</strong> {request.requestId}</p>
+                      <p><strong>Passenger Name:</strong> {request.passengerName}</p>
+                      <p><strong>From:</strong> {request.source}</p>
+                      <p><strong>To:</strong> {request.destination}</p>
+                      <p><strong>Request Date:</strong> {new Date(request.createdAt).toLocaleString()}</p>
+                      <p><strong>Status:</strong> 
+                        <span className={`status-${request.status.toLowerCase()}`}>
+                          {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                        </span>
+                      </p>
+                    </div>
+                    <div className="request-actions">
+                      {request.status === 'pending' && (
+                        <>
+                          <button className="accept-btn" onClick={() => handleAcceptRequest(request.requestId)}>
+                            Accept
+                          </button>
+                          <button className="reject-btn" onClick={() => handleRejectRequest(request.requestId)}>
+                            Reject
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="no-requests-message">
+                  <p>No pending ride requests.</p>
+                </div>
+              )}
+            </div>
           </section>
 
           <section className={`tab-content ${activeTab === 'active-rides' ? 'active' : ''}`}>

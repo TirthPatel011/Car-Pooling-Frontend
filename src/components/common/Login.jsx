@@ -3,17 +3,32 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, Link } from 'react-router-dom';
 import { ForgotPassword } from './ForgotPassword'; // Import ForgotPassword component
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 export const Login = () => {
   const navigate = useNavigate();
-  const { register, handleSubmit } = useForm();
+  const { register, handleSubmit, formState: { errors } } = useForm({
+    defaultValues: {
+      email: '',
+      password: ''
+    }
+  });
 
   const submitHandler = async (data) => {
     try {
       const res = await axios.post("api/users/login", data);
       console.log(res.data);
       if (res.status === 200) {
-        alert("Login Success");
+        toast.success("Login Success", {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+        });
         localStorage.setItem("id", res.data.data._id);
         localStorage.setItem("role", res.data.data.roleId.role_name);
 
@@ -27,15 +42,44 @@ export const Login = () => {
           navigate("/passanger");
         }
       } else {
-        alert("Login Failed");
+        toast.error("Login Failed", {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+        });
       }
     } catch (error) {
-      alert("Login Failed: " + error.message);
+      if (error.response && error.response.status === 401) {
+        toast.error("Invalid email or password", {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+        });
+      } else {
+        toast.error("Login Failed: " + error.message, {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+        });
+      }
     }
   };
 
   return (
     <div className="login-page">
+      <ToastContainer />
       <style>{`
         * {
           margin: 0;
@@ -160,6 +204,16 @@ export const Login = () => {
             font-size: 2rem;
           }
         }
+
+        .error-message {
+          color: #ff4444;
+          font-size: 0.8rem;
+          margin-top: 5px;
+          text-align: left;
+        }
+        .form-group input.error {
+          border-color: #ff4444;
+        }
       `}</style>
 
       <div className="login-container">
@@ -167,15 +221,43 @@ export const Login = () => {
         <form onSubmit={handleSubmit(submitHandler)}>
           <div className="form-group">
             <label>Email</label>
-            <input type="text" {...register("email")} placeholder="Enter email" />
+            <input 
+              type="email" 
+              {...register("email", { 
+                required: "Email is required",
+                pattern: {
+                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                  message: "Invalid email address"
+                }
+              })} 
+              className={errors.email ? "error" : ""}
+              placeholder="Enter email" 
+            />
+            {errors.email && <span className="error-message">{errors.email.message}</span>}
           </div>
           <div className="form-group">
             <label>Password</label>
-            <input type="password" {...register("password")} placeholder="Enter password" />
+            <input 
+              type="password" 
+              {...register("password", { 
+                required: "Password is required",
+                minLength: {
+                  value: 4,
+                  message: "Password must be at least 4 characters"
+                }
+              })} 
+              className={errors.password ? "error" : ""}
+              placeholder="Enter password" 
+            />
+            {errors.password && <span className="error-message">{errors.password.message}</span>}
           </div>
           <input type="submit" className="submit-btn" value="Login" />
         </form>
         <Link to="/forgot-password" className="forgot-password">Forgot Password?</Link>
+        <div style={{ marginTop: '15px' }}>
+          <span style={{ color: '#fff' }}>Don't have an account? </span>
+          <Link to="/signup" style={{ color: '#2ECC9B', textDecoration: 'none' }}>Sign Up</Link>
+        </div>
       </div>
     </div>
   );

@@ -2,9 +2,16 @@ import axios from "axios";
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 export const Signup = () => {
-  const { register, handleSubmit } = useForm();
+  const { 
+    register, 
+    handleSubmit,
+    formState: { errors },
+    watch
+  } = useForm();
   const navigate = useNavigate();
   const [roles, setRoles] = useState([]);
 
@@ -12,7 +19,11 @@ export const Signup = () => {
     const fetchRoles = async () => {
       try {
         const res = await axios.get("/api/roles");
-        setRoles(res.data.data);
+        // Filter out the admin role
+        const filteredRoles = res.data.data.filter(role => 
+          role.role_name !== "Admin"
+        );
+        setRoles(filteredRoles);
       } catch (error) {
         console.error("Error fetching roles:", error);
       }
@@ -25,18 +36,45 @@ export const Signup = () => {
     try {
       const res = await axios.post("/api/users", data);
       if (res.status === 201) {
-        alert("User created successfully");
-        navigate("/login");
+        toast.success("Registered successfully!", {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+        });
+        setTimeout(() => {
+          navigate("/login");
+        }, 2000);
       } else {
-        alert("User not created");
+        toast.error("User not created", {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+        });
       }
     } catch (error) {
-      alert("Error creating user: " + error.message);
+      toast.error("Error creating user: " + error.message, {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+      });
     }
   };
 
   return (
     <div className="signup-page">
+      <ToastContainer />
       <style>{`
         * {
           margin: 0;
@@ -192,6 +230,18 @@ export const Signup = () => {
             font-size: 2rem;
           }
         }
+
+        .error-message {
+          color: #ff4444;
+          font-size: 0.8rem;
+          margin-top: 5px;
+          text-align: left;
+        }
+
+        .form-group input:invalid,
+        .form-group select:invalid {
+          border-color: #ff4444;
+        }
       `}</style>
 
       <div className="signup-container">
@@ -200,28 +250,103 @@ export const Signup = () => {
           <div className="form-row">
             <div className="form-group">
               <label>First Name</label>
-              <input type="text" {...register("firstName")} />
+              <input 
+                type="text" 
+                {...register("firstName", { 
+                  required: "First name is required",
+                  minLength: {
+                    value: 2,
+                    message: "First name must be at least 2 characters"
+                  },
+                  maxLength: {
+                    value: 50,
+                    message: "First name cannot exceed 50 characters"
+                  },
+                  pattern: {
+                    value: /^[A-Za-z\s'-]+$/,
+                    message: "First name can only contain letters, spaces, hyphens, and apostrophes"
+                  }
+                })} 
+              />
+              {errors.firstName && <span className="error-message">{errors.firstName.message}</span>}
             </div>
             <div className="form-group">
               <label>Last Name</label>
-              <input type="text" {...register("lastName")} />
+              <input 
+                type="text" 
+                {...register("lastName", { 
+                  required: "Last name is required",
+                  minLength: {
+                    value: 2,
+                    message: "Last name must be at least 2 characters"
+                  },
+                  maxLength: {
+                    value: 50,
+                    message: "Last name cannot exceed 50 characters"
+                  },
+                  pattern: {
+                    value: /^[A-Za-z\s'-]+$/,
+                    message: "Last name can only contain letters, spaces, hyphens, and apostrophes"
+                  }
+                })} 
+              />
+              {errors.lastName && <span className="error-message">{errors.lastName.message}</span>}
             </div>
           </div>
           <div className="form-group">
             <label>Email</label>
-            <input type="text" {...register("email")} />
+            <input 
+              type="email" 
+              {...register("email", { 
+                required: "Email is required",
+                pattern: {
+                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                  message: "Invalid email address"
+                }
+              })} 
+            />
+            {errors.email && <span className="error-message">{errors.email.message}</span>}
           </div>
           <div className="form-group">
             <label>Password</label>
-            <input type="password" {...register("password")} />
+            <input 
+              type="password" 
+              {...register("password", { 
+                required: "Password is required",
+                minLength: {
+                  value: 4,
+                  message: "Password must be at least 4 characters"
+                },
+                pattern: {
+                  value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{4,}$/,
+                  message: "Password must contain at least one uppercase letter, one lowercase letter, one number and one special character"
+                }
+              })} 
+            />
+            {errors.password && <span className="error-message">{errors.password.message}</span>}
           </div>
           <div className="form-group">
             <label>Phone</label>
-            <input type="text" {...register("phone")} />
+            <input 
+              type="tel" 
+              {...register("phone", { 
+                required: "Phone number is required",
+                pattern: {
+                  value: /^[0-9]{10}$/,
+                  message: "Phone number must be 10 digits"
+                }
+              })} 
+            />
+            {errors.phone && <span className="error-message">{errors.phone.message}</span>}
           </div>
           <div className="form-group">
             <label>Role</label>
-            <select {...register("roleId")}>
+            <select 
+              {...register("roleId", { 
+                required: "Role is required",
+                validate: value => value !== "" || "Please select a role"
+              })}
+            >
               <option value="">Select a role</option>
               {roles.map((role) => (
                 <option key={role._id} value={role._id}>
@@ -229,6 +354,7 @@ export const Signup = () => {
                 </option>
               ))}
             </select>
+            {errors.roleId && <span className="error-message">{errors.roleId.message}</span>}
           </div>
           <div style={{ marginBottom: '20px' }}></div>
           <input type="submit" className="submit-btn" value="Sign Up" />

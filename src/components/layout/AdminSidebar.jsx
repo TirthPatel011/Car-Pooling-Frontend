@@ -4,6 +4,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUser, faUsers, faRoad, faSignOutAlt } from '@fortawesome/free-solid-svg-icons';
 import carLogo from '../../../image/navbarlogo.png';
 import axios from 'axios';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const AdminSidebar = () => {
   const [activeTab, setActiveTab] = useState('profile');
@@ -94,9 +96,26 @@ const AdminSidebar = () => {
       try {
         const updatedData = { firstName, lastName, email, phone };
         await axios.put(`http://localhost:3000/api/users/${userId}`, updatedData);
-        alert('Profile updated successfully!');
+        toast.success('Profile updated successfully!', {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          theme: "dark",
+        });
       } catch (error) {
         console.error('Error updating profile:', error);
+        toast.error('Failed to update profile. Please try again.', {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          theme: "dark",
+        });
       }
     }
     setIsEditing(!isEditing);
@@ -110,7 +129,15 @@ const AdminSidebar = () => {
     try {
       const { id, ...userData } = editingUser; // Extract id and rest of the data
       await axios.put(`http://localhost:3000/api/users/${id}`, userData);
-      alert('User updated successfully!');
+      toast.success('User updated successfully!', {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        theme: "dark",
+      });
       setUsers(users.map(u => (u._id === id ? { ...editingUser } : u)));
       setEditingUser(null);
     } catch (error) {
@@ -122,10 +149,27 @@ const AdminSidebar = () => {
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
         await axios.delete(`http://localhost:3000/api/users/${userId}`);
-        alert('User deleted successfully!');
+        toast.success('User deleted successfully!', {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          theme: "dark",
+        });
         setUsers(users.filter(u => u._id !== userId));
       } catch (error) {
         console.error('Error deleting user:', error);
+        toast.error('Failed to delete user. Please try again.', {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          theme: "dark",
+        });
       }
     }
   };
@@ -227,6 +271,10 @@ const AdminSidebar = () => {
           padding: 30px 20px;
           border-right: 3px solid #2ECC9B;
           box-shadow: 2px 0 15px rgba(46, 204, 155, 0.3);
+          position: sticky; /* Make sidebar sticky */
+          top: 0; /* Stick to the top of the viewport */
+          height: 100vh; /* Ensure it spans the full height of the viewport */
+          overflow-y: auto; /* Add scroll if content overflows */
         }
 
         .profile-pic {
@@ -422,7 +470,17 @@ const AdminSidebar = () => {
         }
       `}</style>
 
-     
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
 
       <header className="header">
         <div className="logo">

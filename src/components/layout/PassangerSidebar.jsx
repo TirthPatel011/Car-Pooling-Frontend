@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUser, faSearch, faSignOutAlt, faBook, faBan } from '@fortawesome/free-solid-svg-icons';
+import { faUser, faSearch, faSignOutAlt, faBook, faBan, faClock } from '@fortawesome/free-solid-svg-icons';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import carLogo from '../../../image/navbarlogo.png';
 import axios from 'axios';
 
@@ -10,6 +12,9 @@ const PassangerSidebar = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -33,7 +38,17 @@ const PassangerSidebar = () => {
         fetchAllRides();
       } else if (activeTab === 'bookings') {
         fetchBookings();
+      } else if (activeTab === 'pending-requests') {
+        fetchPendingRequests();
       }
+    }
+  }, [activeTab, userId]);
+
+  useEffect(() => {
+    console.log('Component mounted or activeTab changed:', activeTab);
+    if (userId && activeTab === 'pending-requests') {
+      console.log('Fetching pending requests...');
+      fetchPendingRequests();
     }
   }, [activeTab, userId]);
 
@@ -126,6 +141,103 @@ const PassangerSidebar = () => {
     }
   };
 
+  const fetchPendingRequests = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      console.log('Fetching all ride requests for userId:', userId);
+      
+      // Get all ride requests for this passenger
+      const response = await axios.get(`${BASE_URL}/ride-requests`, {
+        params: {
+          passengerId: userId
+        }
+      });
+      
+      console.log('All ride requests:', response.data);
+      
+      if (!response.data || !Array.isArray(response.data)) {
+        console.error('Invalid response format:', response.data);
+        setError('Invalid response format from server');
+        setPendingRequests([]);
+        return;
+      }
+
+      // Filter for unapproved requests (status is not 'accepted')
+      const unapprovedRequests = response.data.filter(request => 
+        request.status !== 'accepted' && request.status !== 'rejected'
+      );
+      
+      console.log('Unapproved requests:', unapprovedRequests);
+
+      if (unapprovedRequests.length === 0) {
+        console.log('No unapproved requests found');
+        setPendingRequests([]);
+        return;
+      }
+
+      // Fetch details for each unapproved request
+      const requestsWithDetails = await Promise.all(
+        unapprovedRequests.map(async (request) => {
+          console.log('Processing request:', request);
+          try {
+            let ride = null;
+            let driver = null;
+            
+            if (request.rideId) {
+              console.log('Fetching ride details for rideId:', request.rideId);
+              const rideResponse = await axios.get(`${BASE_URL}/rides/${request.rideId}`);
+              ride = rideResponse.data;
+              console.log('Ride details:', ride);
+              
+              if (ride && ride.driverId) {
+                console.log('Fetching driver details for driverId:', ride.driverId);
+                const driverResponse = await axios.get(`${BASE_URL}/api/users/${ride.driverId}`);
+                driver = driverResponse.data.data;
+                console.log('Driver details:', driver);
+              }
+            }
+
+            const processedRequest = {
+              requestId: request.requestId,
+              rideId: request.rideId,
+              source: request.source,
+              destination: request.destination,
+              createdAt: request.createdAt,
+              status: request.status,
+              ride: ride,
+              driver: driver
+            };
+            
+            console.log('Processed request:', processedRequest);
+            return processedRequest;
+          } catch (error) {
+            console.error(`Error fetching details for request ${request.requestId}:`, error);
+            return {
+              ...request,
+              ride: null,
+              driver: null,
+            };
+          }
+        })
+      );
+
+      console.log('All processed requests:', requestsWithDetails);
+      setPendingRequests(requestsWithDetails);
+    } catch (error) {
+      console.error('Error fetching ride requests:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      setError('Failed to fetch ride requests. Please try again later.');
+      setPendingRequests([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleTabChange = (tab) => setActiveTab(tab);
 
   const handleProfileEdit = async () => {
@@ -133,9 +245,26 @@ const PassangerSidebar = () => {
       const updatedData = { firstName, lastName, email, phone };
       try {
         await axios.put(`${BASE_URL}/api/users/${userId}`, updatedData);
-        alert('Profile updated successfully!');
+        toast.success('Profile updated successfully!', {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          theme: "dark",
+        });
       } catch (error) {
         console.error('Error updating profile:', error);
+        toast.error('Failed to update profile. Please try again.', {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          theme: "dark",
+        });
       }
     }
     setIsEditing(!isEditing);
@@ -193,46 +322,53 @@ const PassangerSidebar = () => {
   const handleBookRide = async (ride) => {
     if (!ride || !ride.rideId || !ride.price) {
       console.error('Invalid ride data:', ride);
-      alert('Cannot book ride: Ride information is missing.');
+      toast.error('Cannot book ride: Ride information is missing.');
       return;
     }
     if (!userId) {
       console.error('User ID is missing');
-      alert('Cannot book ride: Please log in.');
+      toast.error('Cannot book ride: Please log in.');
       return;
     }
-
+  
     try {
-      const bookingData = {
-        bookingId: `B${Date.now()}`,
+      const requestData = {
+        requestId: `R${Date.now()}`,
         rideId: ride.rideId,
         passengerId: userId,
-        seatsBooked: 1,
-        totalFare: Number(ride.price), // Ensure it’s a number
+        passengerName: `${firstName} ${lastName}`,
+        driverId: ride.driverId,
+        source: ride.source,
+        destination: ride.destination,
+        dateTime: ride.dateTime,
+        seatsRequested: 1,
+        status: 'pending',
       };
-      await axios.post(`${BASE_URL}/booking`, bookingData);
-      alert('Ride booked successfully!');
-      await fetchBookings(); // Ensure bookings are fetched after successful booking
+      await axios.post(`${BASE_URL}/ride-requests`, requestData);
+      toast.success('Ride request submitted successfully!');
     } catch (error) {
-      console.error('Error booking ride:', error);
-      if (error.response) {
-        console.error('Server Response:', error.response.data);
-        console.error('Status:', error.response.status);
-        alert(`Failed to book ride: ${error.response.data.message || 'Internal Server Error'}`);
-      } else {
-        console.error('Error Message:', error.message);
-        alert('Failed to book ride. Please check your internet connection or try again later.');
-      }
+      console.error('Error submitting ride request:', error);
+      toast.error('Failed to submit ride request. Please try again later.');
     }
   };
-
+  
   const handleCancelBooking = async (bookingId) => {
     try {
       await axios.delete(`${BASE_URL}/booking/${bookingId}`);
-      alert('Booking cancelled successfully!');
+      toast.success('Booking cancelled successfully!');
       fetchBookings();
     } catch (error) {
       console.error('Error cancelling booking:', error);
+    }
+  };
+
+  const handleCancelRequest = async (requestId) => {
+    try {
+      await axios.delete(`${BASE_URL}/ride-requests/${requestId}`);
+      toast.success('Ride request cancelled successfully!');
+      fetchPendingRequests();
+    } catch (error) {
+      console.error('Error cancelling ride request:', error);
     }
   };
 
@@ -243,6 +379,17 @@ const PassangerSidebar = () => {
 
   return (
     <div>
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
       <style>{`
         * {
           margin: 0;
@@ -316,7 +463,10 @@ const PassangerSidebar = () => {
           padding: 30px 20px;
           border-right: 3px solid #2ECC9B;
           box-shadow: 2px 0 15px rgba(46, 204, 155, 0.3);
-          animation: fadeIn 1s ease-in-out;
+          position: sticky; /* Make sidebar sticky */
+          top: 0; /* Stick to the top of the viewport */
+          height: 100vh; /* Ensure it spans the full height of the viewport */
+          overflow-y: auto; /* Add scroll if content overflows */
         }
         .profile-pic {
           text-align: center;
@@ -490,6 +640,51 @@ const PassangerSidebar = () => {
           color: #2ECC9B;
           text-shadow: 0 0 3px rgba(46, 204, 155, 0.3);
         }
+        .request-card {
+          background: rgba(46, 204, 155, 0.1);
+          padding: 20px;
+          border-radius: 10px;
+          border: 1px solid #2ECC9B;
+          margin-bottom: 20px;
+          box-shadow: 0 0 10px rgba(46, 204, 155, 0.3);
+        }
+        .request-info, .ride-info, .driver-info {
+          margin-bottom: 15px;
+        }
+        .request-info p, .ride-info p, .driver-info p {
+          margin: 5px 0;
+          color: #fff;
+        }
+        .status-pending {
+          color: #f39c12;
+          font-weight: bold;
+        }
+        .status-accepted {
+          color: #2ecc71;
+          font-weight: bold;
+        }
+        .status-rejected {
+          color: #e74c3c;
+          font-weight: bold;
+        }
+        .request-actions {
+          text-align: right;
+          margin-top: 15px;
+        }
+        .loading-message, .error-message, .no-requests-message {
+          text-align: center;
+          padding: 20px;
+          color: #fff;
+        }
+        .retry-btn {
+          background: linear-gradient(45deg, #2ECC9B, #27A583);
+          color: #000000;
+          padding: 8px 16px;
+          border: none;
+          border-radius: 20px;
+          cursor: pointer;
+          margin-top: 10px;
+        }
         @keyframes fadeIn {
           from { opacity: 0; }
           to { opacity: 1; }
@@ -552,6 +747,9 @@ const PassangerSidebar = () => {
             </a>
             <a className={activeTab === 'search-ride' ? 'active' : ''} onClick={() => handleTabChange('search-ride')}>
               <FontAwesomeIcon icon={faSearch} /> Search Ride
+            </a>
+            <a className={activeTab === 'pending-requests' ? 'active' : ''} onClick={() => handleTabChange('pending-requests')}>
+              <FontAwesomeIcon icon={faClock} /> Pending Requests
             </a>
             <a className={activeTab === 'bookings' ? 'active' : ''} onClick={() => handleTabChange('bookings')}>
               <FontAwesomeIcon icon={faBook} /> Bookings
@@ -660,6 +858,72 @@ const PassangerSidebar = () => {
                 <p>No rides available. Try adjusting your search criteria!</p>
               )}
             </div>
+          </section>
+
+          {/* Pending Requests Tab */}
+          <section className={`tab-content ${activeTab === 'pending-requests' ? 'active' : ''}`}>
+            <h1>Ride Requests</h1>
+            <p className="subtext">Your Ride Requests Awaiting Approval</p>
+            
+            {isLoading ? (
+              <div className="loading-message">
+                <p>Loading ride requests...</p>
+              </div>
+            ) : error ? (
+              <div className="error-message">
+                <p>{error}</p>
+                <button className="retry-btn" onClick={fetchPendingRequests}>
+                  Retry
+                </button>
+              </div>
+            ) : pendingRequests.length > 0 ? (
+              <div className="pending-requests-list">
+                {pendingRequests.map((request) => (
+                  <div className="request-card" key={request.requestId}>
+                    <div className="request-info">
+                      <p><strong>Request ID:</strong> {request.requestId}</p>
+                      <p><strong>From:</strong> {request.source}</p>
+                      <p><strong>To:</strong> {request.destination}</p>
+                      <p><strong>Request Date:</strong> {new Date(request.createdAt).toLocaleString()}</p>
+                      <p><strong>Status:</strong> 
+                        <span className={`status-${request.status.toLowerCase()}`}>
+                          {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                        </span>
+                      </p>
+                    </div>
+                    
+                    {request.ride && (
+                      <div className="ride-info">
+                        <p><strong>Ride ID:</strong> {request.ride.rideId}</p>
+                        <p><strong>Ride Date:</strong> {new Date(request.ride.dateTime).toLocaleString()}</p>
+                        <p><strong>Price:</strong> ${request.ride.price}</p>
+                        <p><strong>Available Seats:</strong> {request.ride.availableSeats}</p>
+                      </div>
+                    )}
+
+                    {request.driver && (
+                      <div className="driver-info">
+                        <p><strong>Driver Name:</strong> {`${request.driver.firstName} ${request.driver.lastName}`}</p>
+                        <p><strong>Driver Email:</strong> {request.driver.email}</p>
+                        <p><strong>Driver Phone:</strong> {request.driver.phone}</p>
+                      </div>
+                    )}
+
+                    <div className="request-actions">
+                      {request.status === 'pending' && (
+                        <button className="cancel-btn" onClick={() => handleCancelRequest(request.requestId)}>
+                          Cancel Request
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="no-requests-message">
+                <p>No ride requests found.</p>
+              </div>
+            )}
           </section>
 
           {/* Bookings Tab */}
